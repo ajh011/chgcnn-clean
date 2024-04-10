@@ -98,17 +98,24 @@ class InMemoryCrystalHypergraphDataset(Dataset):
             ids_csv = csv.reader(id_file)
             ids = [mp_id[0] for mp_id in ids_csv]
             self.ids = ids
+            print(f'Ids from:{osp.join(csv_dir, "processed_ids.csv")}')
+            print(f'IDs:{ids}')
     
     def __len__(self):
         return len(self.ids)
 
     def __getitem__(self, index):
         mp_id = self.ids[index]
-        file_dir = osp.join('data', self.data_dir)
-        file_dir = osp.join(file_dir, mp_id + '_hg.json')
-        with open(file_dir,'r') as storage:
-            data_read = storage.read()
-            data_read = jsonpickle.decode(data_read)
+        file_dir = osp.join(self.data_dir, mp_id + '_hg.json')
+        try:
+            with open(file_dir,'r') as storage:
+                data_read = storage.read()
+                data_read = jsonpickle.decode(data_read)
+        except:
+            print(f'Failing ID:{index}')
+            with open(file_dir,'r') as storage:
+                data_read = storage.read()
+                data_read = jsonpickle.decode(data_read)
         data_dict = dict(data_read)
         data = HeteroData(data_dict)
         num_nodes = list(data['atom'].hyperedge_attrs.shape)[0]

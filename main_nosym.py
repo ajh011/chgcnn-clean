@@ -202,7 +202,7 @@ def main():
     parser.add_argument('--num-workers', default=0, type=int)
     parser.add_argument('--drop-last', default=False, type=bool)
     parser.add_argument('--pin-memory', default=False, type=bool)
-    parser.add_argument('--dir', default='dataset', type=str)
+    parser.add_argument('--dir', default='data/dataset', type=str)
     parser.add_argument('--normalize', default=True, type=bool)
     parser.add_argument('--target_name', default = 'form_en', type=str, help='formation energy (form_en), band gap (band_gap) or energy above hull (en_abv_hull) prediction task') 
     parser.add_argument('--scheduler', default=True, type=bool,
