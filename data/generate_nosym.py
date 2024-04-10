@@ -107,15 +107,9 @@ class InMemoryCrystalHypergraphDataset(Dataset):
     def __getitem__(self, index):
         mp_id = self.ids[index]
         file_dir = osp.join(self.data_dir, mp_id + '_hg.json')
-        try:
-            with open(file_dir,'r') as storage:
-                data_read = storage.read()
-                data_read = jsonpickle.decode(data_read)
-        except:
-            print(f'Failing ID:{index}')
-            with open(file_dir,'r') as storage:
-                data_read = storage.read()
-                data_read = jsonpickle.decode(data_read)
+        with open(file_dir,'r') as storage:
+            data_read = storage.read()
+            data_read = jsonpickle.decode(data_read)
         data_dict = dict(data_read)
         data = HeteroData(data_dict)
         num_nodes = list(data['atom'].hyperedge_attrs.shape)[0]
