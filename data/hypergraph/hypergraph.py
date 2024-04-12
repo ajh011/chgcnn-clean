@@ -68,14 +68,14 @@ class Crystal_Hypergraph(HeteroData):
                 self.import_targets(target_dict)
 
     ## Function used to generate atomic features (Note these are considered hyperedge_attrs)
-    def generate_atom_xs(self, import_feats=False):
+    def generate_atom_xs(self, import_feats=True):
         node_attrs = []
         for site in self.struc.sites:
             for el in site.species:
                 node_attrs.append(el.Z)
     ## import features callsusual atom_init from CGCNN and assumes this json file 
     ## is in the current directory otherwise, feats are just atomic numbers
-        if import_feats == True:
+        if import_feats == True: 
             with open('atom_init.json') as atom_init:
                 atom_vecs = json.load(atom_init)
                 node_attrs = [atom_vecs[f'{z}'] for z in node_attrs]
