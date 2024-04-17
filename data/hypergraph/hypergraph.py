@@ -23,10 +23,9 @@ from .neighbor_list import get_nbrlist
 ### Define general crystal hypergraph class that accepts list of hyperedge types, mp_id string, and structure
 class Crystal_Hypergraph(HeteroData):
     def __init__(self, struc = None, bonds = True, triplets = True, motifs = True, unit_cell = False,
-                 mp_id: str = None, target_dict = {}, strategy = 'Aggregate'):
+                 mp_id: str = None, target_dict = {}, strategy = 'Atom-Aggregate'):
         super().__init__()  
         
-        self.struc = struc
         self.mp_id = mp_id
         self.orders = []
         
@@ -60,17 +59,19 @@ class Crystal_Hypergraph(HeteroData):
                     self.add_hyperedge_type(hyperedge_type)
         
             ## Generate relatives edges and atomic info
-            self.generate_atom_xs()
+            self.generate_atom_xs(struc)
             self.generate_edges(strategy)
         
             ## Import target dict automatically, if passed as input of init
             if target_dict != {}:
                 self.import_targets(target_dict)
+            ## Remove excessive data load induced by residual hyperedge info
+            del self.hyperedges
 
     ## Function used to generate atomic features (Note these are considered hyperedge_attrs)
-    def generate_atom_xs(self, import_feats=True):
+    def generate_atom_xs(self, struc, import_feats=True):
         node_attrs = []
-        for site in self.struc.sites:
+        for site in struc.sites:
             for el in site.species:
                 node_attrs.append(el.Z)
     ## import features callsusual atom_init from CGCNN and assumes this json file 
@@ -147,12 +148,16 @@ class Crystal_Hypergraph(HeteroData):
     def generate_edges(self, strategy):
         if strategy == 'All':
             self.generate_relatives()
+        elif strategy == 'Atom-Aggregate':
+            pass
         elif strategy == 'Relatives':
             self.generate_relatives(relatives = False)
         elif strategy == 'Aggregate': 
             self.generate_relatives(touching = False, relatives = False)
         elif strategy == 'Interorder': 
             self.generate_relatives(inclusion = False, touching = False)
+        else:
+            print(f'Strategy {strategy} unrecognized, just including hyperedge indexes relating to nodes')
 
         
     ## Function used to generate full relatives set

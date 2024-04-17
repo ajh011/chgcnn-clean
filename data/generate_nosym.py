@@ -116,17 +116,17 @@ class InMemoryCrystalHypergraphDataset(Dataset):
 
         return data
     
-processed_data_dir = 'dataset'
+processed_data_dir = 'dataset_trimmed'
 
 def process_data(idx):
-    with open(osp.join('dataset','processed_ids.csv'),'a') as ids:
+    with open(osp.join(processed_data_dir,'processed_ids.csv'),'a') as ids:
         try:
             d = dataset[idx]
             data = d['hgraph']
             mp_id = data['mp_id']
             data_dict = data.to_dict()
             data_list = list(data_dict.items())
-            with open('dataset/{}_hg.json'.format(mp_id),'w') as storage:
+            with open(f'{processed_data_dir}/{mp_id}_hg.json','w') as storage:
                 json_list = jsonpickle.encode(data_list)
                 storage.write(json_list)
             ids.write(d['mp_id']+'\n')
@@ -150,6 +150,6 @@ if __name__ == '__main__':
     processed_data_dir = processed_data_dir
 
     dataset = CrystalHypergraphDataset(cif_dir)
-    with open(osp.join('dataset','processed_ids.csv'),'w') as ids:
+    with open(osp.join(processed_data_dir,'processed_ids.csv'),'w') as ids:
         print(f'Clearing id list in {osp.join(processed_data_dir,"processed_ids.csv")}')
     run_process()
