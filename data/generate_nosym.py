@@ -116,7 +116,7 @@ class InMemoryCrystalHypergraphDataset(Dataset):
 
         return data
     
-processed_data_dir = 'dataset_trimmed'
+processed_data_dir = 'dataset'
 
 def process_data(idx):
     with open(osp.join(processed_data_dir,'processed_ids.csv'),'a') as ids:
