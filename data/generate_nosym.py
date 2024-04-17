@@ -43,7 +43,11 @@ except:
 
     from hypergraph.hypergraph import Crystal_Hypergraph
 
+##Directory for processed data (relative generate file)
+processed_data_dir = 'dataset_log_g'
 
+##Directory of cifs and id_prop.csv containing targets
+cif_dir = 'matbench_data/log_g'
 
 ##Build data structure in form of (vanilla) pytorch dataset (not PytorchGeometric!)
 class CrystalHypergraphDataset(Dataset):
@@ -116,7 +120,6 @@ class InMemoryCrystalHypergraphDataset(Dataset):
 
         return data
     
-processed_data_dir = 'dataset'
 
 def process_data(idx):
     with open(osp.join(processed_data_dir,'processed_ids.csv'),'a') as ids:
@@ -146,8 +149,7 @@ def run_process(N=None, processes=10):
 
 
 if __name__ == '__main__':
-    cif_dir = 'cifs'
-    processed_data_dir = processed_data_dir
+    print(f'Converting cifs in {cif_dir} to data in {processed_data_dir}')
 
     dataset = CrystalHypergraphDataset(cif_dir)
     with open(osp.join(processed_data_dir,'processed_ids.csv'),'w') as ids:
