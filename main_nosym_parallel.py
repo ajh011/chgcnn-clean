@@ -215,7 +215,7 @@ def main_worker(rank, world_size, test_arg):
     parser.add_argument('--num-workers', default=0, type=int)
     parser.add_argument('--drop-last', default=False, type=bool)
     parser.add_argument('--pin-memory', default=False, type=bool)
-    parser.add_argument('--dir', default='data/log_k_dataset_80bond', type=str)
+    parser.add_argument('--dir', default='data/dataset_phonons', type=str)
     parser.add_argument('--normalize', default=True, type=bool)
     parser.add_argument('--target_name', default = 'form_en', type=str, help='formation energy (form_en), band gap (band_gap) or energy above hull (en_abv_hull) prediction task') 
     parser.add_argument('--scheduler', default=True, type=bool,
@@ -374,6 +374,7 @@ def main_worker(rank, world_size, test_arg):
 
 def main_ddp():
     world_size = torch.cuda.device_count()
+    print(f'Running on {world_size} GPUs!')
     mp.spawn(main_worker, args = (world_size, 'dummy'), nprocs = world_size, join = True)
 
 
