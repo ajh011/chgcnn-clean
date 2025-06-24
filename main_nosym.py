@@ -207,6 +207,13 @@ def main():
     parser.add_argument('--target_name', default = 'form_en', type=str, help='formation energy (form_en), band gap (band_gap) or energy above hull (en_abv_hull) prediction task') 
     parser.add_argument('--scheduler', default=True, type=bool,
             help = 'use scheduler')
+    parser.add_argument('--layers', default=[], type=list,
+            help = 'specify hypergraph convolutional layers (b,t,m)')
+    parser.add_argument('--bonds', default=True,
+            help = 'whether to include bond hyperconv layers (only if layers are not explicitly specified)', action = 'store_true')
+    parser.add_argument('--triplets', default=False,            help = 'whether to include triplet hyperconv layers (only if layers are not explicitly specified)', action = 'store_true')
+    parser.add_argument('--motifs', default=False,
+            help = 'whether to include motif hyperconv layers (only if layers are not explicitly specified)', action = 'store_true')
 
     args = parser.parse_args()
 
@@ -242,7 +249,7 @@ def main():
         class_bool = True
     else:
         class_bool = False
-    model = CrystalHypergraphConv(classification = class_bool).to(device)
+    model = CrystalHypergraphConv(classification = class_bool, bonds = args.bonds, triplets = args.triplets, motifs = args.motifs, layers = args.layers).to(device)
 
     
     #### Divide data into train and test sets

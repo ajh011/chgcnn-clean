@@ -7,13 +7,13 @@ from torch_geometric.nn import aggr
 
 
 class CHGConv(MessagePassing):
-    def __init__(self, node_fea_dim=92, hedge_fea_dim=35, batch_norm = True):
+    def __init__(self, node_fea_dim=92, hedge_fea_dim=35, batch_norm = True, update_hedges = False):
         super().__init__()
         self.batch_norm = batch_norm
         self.node_fea_dim = node_fea_dim
         self.hedge_fea_dim = hedge_fea_dim
+        self.update_hedges = update_hedges
 
-        self.lin_f1 = Linear(node_fea_dim+hedge_fea_dim, hedge_fea_dim+node_fea_dim)
         self.lin_c1 = Linear(node_fea_dim+hedge_fea_dim, hedge_fea_dim)
         self.lin_f2 = Linear(2*node_fea_dim+hedge_fea_dim, 2*node_fea_dim)
 
@@ -32,8 +32,6 @@ class CHGConv(MessagePassing):
                             mode='attn',
                             mode_kwargs=dict(in_channels=64, out_channels=64, num_heads=4),
                             )
-        #self.hedge_aggr = aggr.SoftmaxAggregation(learn = True)
-        #self.node_aggr = aggr.SoftmaxAggregation(learn = True)
 
         if batch_norm == True:
             self.bn_f = BatchNorm1d(node_fea_dim)
@@ -49,10 +47,10 @@ class CHGConv(MessagePassing):
                         (dim(hedge_feat_dim,num_hedges),dim(num_nodes, node_feat_dim))
 
         hedge_index:    torch tensor (of type long) of
-                        hyperedge indices (as in HypergraphConv)
+                        hyperedge indices (as in HypergraphConv, e.g. ('motif','contains','atom'))
 
-                        [[node_indxs,...],[hyperedge_indxs,...]]
-                        dim([2,num nodes in all hedges])
+                        [[hyperedge_indxs,...],[node_indxs,...]]
+                        dim([2,tot num nodes in all hedges])
 
 
         '''
@@ -80,13 +78,16 @@ class CHGConv(MessagePassing):
         '''
 
         message_holder = torch.cat([hedge_index_xs, hedge_attr], dim = 1)
+
+        if self.update_hedges:
+            hyperedge_attrs = self.lin_c1(message_holder)
+            hyperedge_attrs = self.softplus_hedge(hedge_attr + hyperedge_attrs)
+
         '''
         We then can aggregate the messages and add to node features after some activation 
         functions and linear layers.
         '''
-        hyperedge_attrs = self.lin_c1(message_holder)
-        hyperedge_attrs = self.softplus_hedge(hedge_attr + hyperedge_attrs)
-        message_holder = self.lin_f1(message_holder)
+
         x_i = x[hyperedge_index[1]]  # Target node features
         x_j = message_holder[hyperedge_index[0]]  # Source node features
         z = torch.cat([x_i,x_j], dim=-1)  # Form reverse messages (for origin node messages)
@@ -103,4 +104,7 @@ class CHGConv(MessagePassing):
 
         out = self.softplus_out(out + x)
 
-        return out
+        if self.update_hedges:
+            return out, hyperedge_attrs
+        else:
+            return out
