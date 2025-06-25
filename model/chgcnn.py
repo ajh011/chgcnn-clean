@@ -44,6 +44,8 @@ class CrystalHypergraphConv(torch.nn.Module):
             elif l == 'm':    
                 conv = HeteroConv({('motif', 'contains', 'atom'): CHGConv(node_fea_dim = h_dim, hedge_fea_dim = hidden_hedge_dim, update_hedges = self.update_hedges)})
                 self.convs.append(conv)
+            else:
+                print(f'Layer type {l} not supported, only b|t|m')
         
         self.layers = layers
         print(f'Using {layers} CHGConv Layers!')

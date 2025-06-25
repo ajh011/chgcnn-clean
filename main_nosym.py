@@ -11,11 +11,13 @@ from data.generate_nosym import InMemoryCrystalHypergraphDataset
 from model.chgcnn import CrystalHypergraphConv
 from data.hypergraph.hypergraph import *
 import torch_geometric.transforms as T
-
-
+from datetime import datetime
 
 from random import sample
 
+#Define default dataset here for convenience (target name
+#derived from name here, unless otherwise specified)
+default_dataset = 'dataset_log_k'
 
 def ClassificationAccuracy(output, target):
     prediction = torch.argmax(output, dim=1)
@@ -87,7 +89,7 @@ def train(model, device, train_loader, loss_criterion, accuracy_criterion, optim
         data = data.to(device, non_blocking=True)
         output = torch.squeeze(model(data))
         if task == 'regression':
-            target = torch.tensor([float(i) for i in data[target_name]]).to(device)
+            target = torch.tensor([float(i) for i in data.y]).to(device)
             target_norm = normalizer.norm(target)
 
             target = torch.squeeze(target)
@@ -98,7 +100,7 @@ def train(model, device, train_loader, loss_criterion, accuracy_criterion, optim
             losses.update(loss.item(), target_norm.size(0))
             accus.update(accu.item(), target.size(0))
         else:
-            target = data[target_name].long()
+            target = data.y.long()
             loss = loss_criterion(output, target)
             accu = accuracy_criterion(output, target.float())
             losses.update(loss.item(), target.size(0))
@@ -139,7 +141,7 @@ def validate(model, device, test_loader, loss_criterion, accuracy_criterion, epo
             data = data.to(device, non_blocking=True)
             output = torch.squeeze(model(data))
             if task == 'regression':
-                target = torch.tensor([float(i) for i in data[target_name]]).to(device)
+                target = torch.tensor([float(i) for i in data.y]).to(device)
                 target_norm = normalizer.norm(target)
                 target = torch.squeeze(target)
                 target_norm = torch.squeeze(target_norm)
@@ -149,7 +151,7 @@ def validate(model, device, test_loader, loss_criterion, accuracy_criterion, epo
                 losses.update(loss.item(), target_norm.size(0))
                 accus.update(accu.item(), target.size(0))
             else:
-                target = data[target_name].long()
+                target = data.y.long()
                 loss = loss_criterion(output, target)
                 accu = accuracy_criterion(output, target)
                 losses.update(loss.item(), target.size(0))
@@ -202,12 +204,14 @@ def main():
     parser.add_argument('--num-workers', default=0, type=int)
     parser.add_argument('--drop-last', default=False, type=bool)
     parser.add_argument('--pin-memory', default=False, type=bool)
-    parser.add_argument('--dir', default='data/dataset', type=str)
+    parser.add_argument('--dir', default=f'data/{default_dataset}', type=str)
     parser.add_argument('--normalize', default=True, type=bool)
-    parser.add_argument('--target_name', default = 'form_en', type=str, help='formation energy (form_en), band gap (band_gap) or energy above hull (en_abv_hull) prediction task') 
+    parser.add_argument('--target_name', default=str(default_dataset), type=str, help='formation energy (form_en), band gap (band_gap) or energy above hull (en_abv_hull) prediction task') 
     parser.add_argument('--scheduler', default=True, type=bool,
             help = 'use scheduler')
-    parser.add_argument('--layers', default=[], type=list,
+    parser.add_argument('--num-layers', default=3, type=int,
+            help = 'number of b|t|m layers (overriden by layers if specified explicitly)')
+    parser.add_argument('--layers', default='', type=str,
             help = 'specify hypergraph convolutional layers (b,t,m)')
     parser.add_argument('--bonds', default=True,
             help = 'whether to include bond hyperconv layers (only if layers are not explicitly specified)', action = 'store_true')
@@ -216,6 +220,26 @@ def main():
             help = 'whether to include motif hyperconv layers (only if layers are not explicitly specified)', action = 'store_true')
 
     args = parser.parse_args()
+
+    layers = []
+    if args.layers != '':
+        a = 'model_'+args.layers
+        for lay in args.layers:
+            layers.append(str(lay))
+        best_model_filename = f'best_{a}_{args.target_name}_{datetime.now()}.pth.tar'
+        checkpoint_filename = f'checkpoint_{a}_{args.target_name}_{datetime.now()}.pth.tar'
+    else:
+        a = 'model_'
+        if args.bonds:
+            a += 'b'
+        if args.triplets:
+            a += 't'
+        if args.motifs:
+            a += 'm'
+        a+=args.num_layers
+        best_model_filename = f'best_{a}_{args.target_name}_{datetime.now()}.pth.tar'
+        checkpoint_filename = f'checkpoint_{a}_{args.target_name}_{datetime.now()}.pth.tar'
+
 
     best_accu = 1e6
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -249,7 +273,7 @@ def main():
         class_bool = True
     else:
         class_bool = False
-    model = CrystalHypergraphConv(classification = class_bool, bonds = args.bonds, triplets = args.triplets, motifs = args.motifs, layers = args.layers).to(device)
+    model = CrystalHypergraphConv(classification = class_bool, bonds = args.bonds, triplets = args.triplets, motifs = args.motifs, layers = layers).to(device)
 
     
     #### Divide data into train and test sets
@@ -284,9 +308,9 @@ def main():
     #### Set normalizer (for targets)
     if args.normalize == True:
         if len(dataset) < 1000:
-            sample_targets = [torch.tensor(float(dataset[i]['target'])) for i in range(len(dataset))]
+            sample_targets = [torch.tensor(float(dataset[i].y)) for i in range(len(dataset))]
         else:
-            sample_targets = [torch.tensor(float(dataset[i]['target'])) for i in sample(range(len(dataset)), 1000)]
+            sample_targets = [torch.tensor(float(dataset[i].y)) for i in sample(range(len(dataset)), 1000)]
         normalizer = Normalizer(sample_targets)
         print('Normalizer initialized!')
     else:
@@ -327,7 +351,7 @@ def main():
     #### Resume mechanism
     if args.resume:
         print("=> loading checkpoint")
-        checkpoint = torch.load('checkpoint.pth.tar')
+        checkpoint = torch.load(checkpoint_name)
         args.start_epoch = checkpoint['epoch'] + 1
         best_accu = checkpoint['best_accu']
         model.load_state_dict(checkpoint['state_dict'])
@@ -351,11 +375,11 @@ def main():
             'best_accu': best_accu,
             'optimizer': optimizer.state_dict(),
             'args': vars(args),
-        }, is_best)
+        }, is_best, checkpoint_filename, best_model_filename)
 
 
 
-    ckpt = torch.load('model_best.pth.tar')
+    ckpt = torch.load(best_model_filename)
     print(ckpt['best_accu'])
     wandb.finish()
 
@@ -383,10 +407,10 @@ class Normalizer(object):
         self.std = state_dict['std']
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename, best_model_filename):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(filename, best_model_filename)
 
 
 if __name__ == '__main__':
