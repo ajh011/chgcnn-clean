@@ -23,11 +23,12 @@ from .neighbor_list import get_nbrlist
 ### Define general crystal hypergraph class that accepts list of hyperedge types, mp_id string, and structure
 class Crystal_Hypergraph(HeteroData):
     def __init__(self, struc = None, bonds = True, triplets = True, motifs = True, unit_cell = False,
-                 mp_id: str = None, target_dict = {}, strategy = 'Atom-Aggregate'):
+                 mp_id: str = None, target_dict = {}, strategy = 'Atom-Aggregate', motif_feat = ['csm','lsop']):
         super().__init__()  
         
         self.mp_id = mp_id
         self.orders = []
+        self.motif_feat = motif_feat
         
         self.hyperedges = []
        
@@ -45,7 +46,7 @@ class Crystal_Hypergraph(HeteroData):
                 triplets = Triplets(nbr_voro)
                 self.hyperedges.append(triplets)
             if motifs == True:
-                motifs = Motifs(nbr_crys, struc=struc)    
+                motifs = Motifs(nbr_crys, struc=struc, motif_feat = motif_feat)    
                 self.hyperedges.append(motifs)
             if unit_cell == True:
                 unit_cell = UnitCell(struc)

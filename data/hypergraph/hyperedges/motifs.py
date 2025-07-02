@@ -18,11 +18,29 @@ import math
 
 ### Define bonds hyperedge type for generation
 class Motifs(HyperedgeType):
-    def __init__(self,  dir_or_nbrset=None, struc=None, generate_features = True):
+    def __init__(self,  dir_or_nbrset=None, struc=None, generate_features = True, motif_feat = ['csm','lsop']):
         super().__init__(generate_features = generate_features)
         self.name = 'motif'
         self.order = 12
         self.struc=struc
+        
+        self.csm = False
+        self.lsop = False
+        if type(motif_feat)==list:
+            for mf in motif_feat:
+                if mf == 'csm':
+                    self.csm = True
+                elif mf == 'lsop':
+                    self.lsop = True
+                else:
+                    print(f'Motif feat label {mf} not recognized, must be csm or lsop')
+        else:
+            if motif_feat == 'csm':
+                self.csm = True
+            elif motif_feat == 'lsop':
+                self.lsop = True
+            else:
+                print(f'Motif feat label {motif_feat} not recognized, must be csm or lsop')
         
         self.all_lsop_types = [ "cn",
                             "sgl_bd",
@@ -165,23 +183,33 @@ class Motifs(HyperedgeType):
         )
 
         ##Compute order parameter features
-        lsop = LocalStructOrderParams(lsop_types)
-        CSM = ChemEnvSiteFingerprint(ce_types, MultiWeightsChemenvStrategy.stats_article_weights_parameters(), lgf)
+        if self.lsop:
+            lsop = LocalStructOrderParams(lsop_types)
+        if self.csm:
+            CSM = ChemEnvSiteFingerprint(ce_types, MultiWeightsChemenvStrategy.stats_article_weights_parameters(), lgf)
 
         lsop_tol = 0.05
         for site, neighs in neighborhoods:
-            op_feat = lsop.get_order_parameters(struc, site, indices_neighs = neighs)
-            csm_feat = CSM.featurize(struc, site)
-            for n,f in enumerate(op_feat):
-                if f == None:
-                    op_feat[n] = 0
-                elif f > 1:
-                    op_feat[n] = f
-                ##Account for tolerance:
-                elif f > lsop_tol:
-                    op_feat[n] = f
-                else:
-                    op_feat[n] = 0
-            feat = np.concatenate((op_feat, csm_feat))
+            if self.lsop:
+                op_feat = lsop.get_order_parameters(struc, site, indices_neighs = neighs)
+                for n,f in enumerate(op_feat):
+                    if f == None:
+                        op_feat[n] = 0
+                    elif f > 1:
+                        op_feat[n] = f
+                    ##Account for tolerance:
+                    elif f > lsop_tol:
+                        op_feat[n] = f
+                    else:
+                        op_feat[n] = 0
+            if self.csm:
+                csm_feat = CSM.featurize(struc, site)
+
+            if self.csm and self.lsop:
+                feat = np.concatenate((op_feat, csm_feat))
+            elif self.csm:
+                feat = csm_feat
+            elif self.lsop:
+                feat = lsop_feat
             self.hyperedge_attrs.append(feat)
 

@@ -44,18 +44,19 @@ except:
     from hypergraph.hypergraph import Crystal_Hypergraph
 
 ##Directory for processed data (relative generate file)
-processed_data_dir = 'dataset_log_g'
+processed_data_dir = 'dataset_log_k'
 
 ##Directory of cifs and id_prop.csv containing targets
-cif_dir = 'matbench_data/log_g'
+cif_dir = '/home/ajh/matbench_data/log_k'
 
 ##Build data structure in form of (vanilla) pytorch dataset (not PytorchGeometric!)
 class CrystalHypergraphDataset(Dataset):
-    def __init__(self, cif_dir, dataset_ratio=1.0, radius=4.0, n_nbr=12):
+    def __init__(self, cif_dir, dataset_ratio=1.0, radius=4.0, n_nbr=12, motif_feat = ['csm','lsop']):
         super().__init__()
 
         self.radius = radius
         self.n_nbr = n_nbr
+        self.motif_feat = motif_feat
 
         ##dataset_ratio for testing
         self.dataset_ratio = dataset_ratio
@@ -65,7 +66,7 @@ class CrystalHypergraphDataset(Dataset):
         with open(osp.join(cif_dir,'id_prop.csv')) as id_prop:
             id_prop = csv.reader(id_prop)
             self.id_prop_data = [row for row in id_prop]
-        
+       
 
     def __len__(self):
         return int(round(len(self.id_prop_data)*self.dataset_ratio,1))
@@ -73,12 +74,12 @@ class CrystalHypergraphDataset(Dataset):
     def __getitem__(self, index, report = True):
         mp_id, target = self.id_prop_data[index]
 
-        crystal_path = osp.join(self.cif_dir, 'struc-target-' +str(mp_id))
+        crystal_path = osp.join(self.cif_dir, str(mp_id))
         crystal_path = crystal_path + '.cif'
         if report:
             start = time.time()
         struc = CifParser(crystal_path).get_structures()[0]
-        hgraph = Crystal_Hypergraph(struc, mp_id=mp_id, target_dict={'target':torch.tensor(float(target))})
+        hgraph = Crystal_Hypergraph(struc, mp_id=mp_id, target_dict={'target':torch.tensor(float(target))}, motif_feat = self.motif_feat)
         hgraph.struc = None
         if report:
             duration = time.time()-start
@@ -89,9 +90,16 @@ class CrystalHypergraphDataset(Dataset):
             }
     
 class InMemoryCrystalHypergraphDataset(Dataset):
-    def __init__(self, data_dir, csv_dir = ''):
+    def __init__(self, data_dir, csv_dir = '', motif_feat=['csm','lsop']):
         super().__init__()
-
+        
+        if type(motif_feat) == list:
+            for mf in motif_feat:
+                assert mf in set(['csm','lsop'])
+        else: 
+            assert motif_feat in set(['lsop','csm','none',None])
+        self.motif_feat = motif_feat
+        print(f'Loading motif feats: {motif_feat}')
         if csv_dir == '':
             csv_dir = data_dir
 
@@ -114,6 +122,15 @@ class InMemoryCrystalHypergraphDataset(Dataset):
             data_read = jsonpickle.decode(data_read)
         data_dict = dict(data_read)
         data = HeteroData(data_dict)
+        num_motifs = list(data['motif'].hyperedge_attrs.shape)[0]
+        if str(self.motif_feat) == 'csm':
+            data['motif'].hyperedge_attrs = data['motif'].hyperedge_attrs[:,35:] 
+        elif str(self.motif_feat) == 'lsop':
+            data['motif'].hyperedge_attrs = data['motif'].hyperedge_attrs[:,:35] 
+        elif self.motif_feat == None:
+            data['motif'].hyperedge_attrs = torch.zeros([num_motifs, 0])
+        #_global_store isn't being read correctly... here's a hack:
+        data.y = data_dict['_global_store']['target']
         num_nodes = list(data['atom'].hyperedge_attrs.shape)[0]
         data['atom'].num_nodes = torch.tensor(num_nodes).long()
         data['atom'].batch = torch.tensor([0 for i in range(num_nodes)])

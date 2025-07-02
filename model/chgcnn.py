@@ -11,37 +11,52 @@ from .convolutions.agg_conv import CHGConv
 
 
 class CrystalHypergraphConv(torch.nn.Module):
-    def __init__(self, classification, h_dim = 64, hout_dim = 128, hidden_hedge_dim = 64, n_layers = 3):
+    def __init__(self, classification, h_dim = 64, hout_dim = 128, hidden_hedge_dim = 64, layers = [], n_layers = 3, bonds = True, motifs = True, triplets = False, update_hedges = False):
         super().__init__()
 
         self.classification = classification
+        self.update_hedges = update_hedges
 
         bond_hedge_dim = 40
         motif_hedge_dim = 94 
         triplet_hedge_dim = 40
-#        self.embed = torch.nn.Embedding(101, h_dim)
         self.embed = nn.Linear(92, h_dim)
         self.bembed = nn.Linear(bond_hedge_dim, hidden_hedge_dim)
         self.membed = nn.Linear(motif_hedge_dim, hidden_hedge_dim)
-        self.convs_btb = torch.nn.ModuleList() 
         self.convs = torch.nn.ModuleList() 
-        for _ in range(n_layers):
-            conv = HeteroConv({
-                ('bond', 'contains', 'atom'): CHGConv(node_fea_dim = h_dim, hedge_fea_dim = hidden_hedge_dim),
-#                ('triplet', 'contains', 'atom'): CHGConv(node_fea_dim = h_dim, hedge_fea_dim = triplet_hedge_dim),
-                ('motif', 'contains', 'atom'): CHGConv(node_fea_dim = h_dim, hedge_fea_dim = hidden_hedge_dim),
-#                ('atom', 'in', 'bond'): CHGConv(node_fea_dim = bond_hedge_dim, hedge_fea_dim = h_dim),
-#                ('atom', 'in', 'motif'): CHGConv(node_fea_dim = motif_hedge_dim, hedge_fea_dim = h_dim),
-#                ('bond', 'in', 'motif'): CHGConv(node_fea_dim = hedge_dim, hedge_fea_dim = hedge_dim),
-#                ('motif', 'contains', 'bond'): CHGConv(node_fea_dim = hedge_dim, hedge_fea_dim = hedge_dim),
-            })
-            self.convs.append(conv)
+
+        if layers == []:
+            for n in range(n_layers):
+                if bonds == True:
+                    layers.append('b')
+                if triplets == True:
+                    layers.append('t')
+                if motifs == True:
+                    layers.append('m')
+
+        for l in layers:
+            if l == 'b':
+                conv = HeteroConv({('bond', 'contains', 'atom'): CHGConv(node_fea_dim = h_dim, hedge_fea_dim = hidden_hedge_dim, update_hedges = self.update_hedges)})
+                self.convs.append(conv)
+            elif l == 't':    
+                conv = HeteroConv({('triplet', 'contains', 'atom'): CHGConv(node_fea_dim = h_dim, hedge_fea_dim = triplet_hedge_dim, update_hedges = self.update_hedges)})
+                self.convs.append(conv)
+            elif l == 'm':    
+                conv = HeteroConv({('motif', 'contains', 'atom'): CHGConv(node_fea_dim = h_dim, hedge_fea_dim = hidden_hedge_dim, update_hedges = self.update_hedges)})
+                self.convs.append(conv)
+            else:
+                print(f'Layer type {l} not supported, only b|t|m')
+        
+        self.layers = layers
+        print(f'Using {layers} CHGConv Layers!')
+
         self.l1 = nn.Linear(h_dim, h_dim)
         self.l2 = nn.Linear(h_dim, hout_dim)
         self.l3 = nn.Linear(hout_dim, hout_dim)
         self.act1 = torch.nn.Softplus()
         self.act2 = torch.nn.Softplus()
         self.act3 = torch.nn.Softplus()
+
         if self.classification:
             self.out = nn.Linear(hout_dim, 2)
             self.sigmoid = torch.nn.Sigmoid()
