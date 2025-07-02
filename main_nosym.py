@@ -180,6 +180,8 @@ def main():
                         help='manual epoch number (useful on restarts)')
     parser.add_argument('--epochs', type=int, default=100, metavar='N',
                         help='number of epochs to train (default: 200)')
+    parser.add_argument('--milestones', type=list, default=[150], metavar='Mlstn',
+                        help='milestones for multistep scheduler (default: 150)')
     parser.add_argument('--lr', type=float, default=1e-2, metavar='LR',
                         help='learning rate (default: 1e-2)')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -218,6 +220,8 @@ def main():
     parser.add_argument('--triplets', default=False,            help = 'whether to include triplet hyperconv layers (only if layers are not explicitly specified)', action = 'store_true')
     parser.add_argument('--motifs', default=False,
             help = 'whether to include motif hyperconv layers (only if layers are not explicitly specified)', action = 'store_true')
+    parser.add_argument('--motif-feats', default=['csm','lsop'],
+            help = 'type of motif feature included (csm or lsop)')
 
     args = parser.parse_args()
 
@@ -264,7 +268,8 @@ def main():
 
     #### Create dataset
     print(f'Finding data in {args.dir}...')
-    dataset = InMemoryCrystalHypergraphDataset(args.dir)
+    dataset = InMemoryCrystalHypergraphDataset(args.dir, motif_feat = args.motif_feats)
+    motif_feat_dim = dataset[0]['motif'].hyperedge_attrs.shape[1]
 
         
     #### Initiliaze model 
@@ -273,7 +278,7 @@ def main():
         class_bool = True
     else:
         class_bool = False
-    model = CrystalHypergraphConv(classification = class_bool, bonds = args.bonds, triplets = args.triplets, motifs = args.motifs, layers = layers).to(device)
+    model = CrystalHypergraphConv(classification = class_bool, bonds = args.bonds, motif_feat_dim = motif_feat_dim, triplets = args.triplets, motifs = args.motifs, layers = layers).to(device)
 
     
     #### Divide data into train and test sets
@@ -332,7 +337,7 @@ def main():
     #### Set up scheduler
     if args.scheduler == True:
         #scheduler = CosineAnnealingLR(optimizer, T_max = 300)
-        scheduler = MultiStepLR(optimizer, milestones = [150,250], gamma=0.1)
+        scheduler = MultiStepLR(optimizer, milestones = args.milestones, gamma=0.1)
 
     #### Set cost and loss functions 
     if args.task == 'regression':
