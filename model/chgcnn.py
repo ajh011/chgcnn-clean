@@ -11,14 +11,14 @@ from .convolutions.agg_conv import CHGConv
 
 
 class CrystalHypergraphConv(torch.nn.Module):
-    def __init__(self, classification, h_dim = 64, hout_dim = 128, hidden_hedge_dim = 64, layers = [], n_layers = 3, bonds = True, motifs = True, triplets = False, update_hedges = False):
+    def __init__(self, classification, h_dim = 64, hout_dim = 128, hidden_hedge_dim = 64, layers = [], n_layers = 3, bonds = True, motifs = True, triplets = False, update_hedges = False, motif_feat_dim = 94):
         super().__init__()
 
         self.classification = classification
         self.update_hedges = update_hedges
 
         bond_hedge_dim = 40
-        motif_hedge_dim = 94 
+        motif_hedge_dim = motif_feat_dim
         triplet_hedge_dim = 40
         self.embed = nn.Linear(92, h_dim)
         self.bembed = nn.Linear(bond_hedge_dim, hidden_hedge_dim)

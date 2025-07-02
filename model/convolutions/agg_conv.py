@@ -11,10 +11,15 @@ class CHGConv(MessagePassing):
         super().__init__()
         self.batch_norm = batch_norm
         self.node_fea_dim = node_fea_dim
-        self.hedge_fea_dim = hedge_fea_dim
-        self.update_hedges = update_hedges
+        if hedge_fea_dim in set([None,0,'none']):
+            self.hedge_fea_dim = 0
+            print('No hyperedge features being used in convolution!')
+        else:
+            self.hedge_fea_dim = hedge_fea_dim
 
-        self.lin_c1 = Linear(node_fea_dim+hedge_fea_dim, hedge_fea_dim)
+        self.update_hedges = update_hedges
+        if update_hedges == True:
+            self.lin_c1 = Linear(node_fea_dim+hedge_fea_dim, hedge_fea_dim)
         self.lin_f2 = Linear(2*node_fea_dim+hedge_fea_dim, 2*node_fea_dim)
 
         self.softplus_hedge = torch.nn.Softplus()
@@ -77,7 +82,10 @@ class CHGConv(MessagePassing):
         corresponding hedge features.
         '''
 
-        message_holder = torch.cat([hedge_index_xs, hedge_attr], dim = 1)
+        if self.hedge_fea_dim != 0:
+            message_holder = torch.cat([hedge_index_xs, hedge_attr], dim = 1)
+        else:
+            message_holder = hedge_index_xs
 
         if self.update_hedges:
             hyperedge_attrs = self.lin_c1(message_holder)
