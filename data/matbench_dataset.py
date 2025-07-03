@@ -144,6 +144,10 @@ def process_data(idx):
         with open(f'{processed_data_dir}/{mp_id}_hg.json','w') as storage:
             json_list = jsonpickle.encode(data_list)
             storage.write(json_list)
+        with open(osp.join(processed_data_dir, 'processed_ids.csv'),'a') as id_file:
+            id_file.write(d['mp_id']+'\n')
+
+
 
 
 
