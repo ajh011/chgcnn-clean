@@ -188,22 +188,31 @@ class Motifs(HyperedgeType):
         if self.csm:
             CSM = ChemEnvSiteFingerprint(ce_types, MultiWeightsChemenvStrategy.stats_article_weights_parameters(), lgf)
 
+
         lsop_tol = 0.05
         for site, neighs in neighborhoods:
             if self.lsop:
-                op_feat = lsop.get_order_parameters(struc, site, indices_neighs = neighs)
-                for n,f in enumerate(op_feat):
-                    if f == None:
-                        op_feat[n] = 0
-                    elif f > 1:
-                        op_feat[n] = f
-                    ##Account for tolerance:
-                    elif f > lsop_tol:
-                        op_feat[n] = f
-                    else:
-                        op_feat[n] = 0
+                try:
+                    op_feat = lsop.get_order_parameters(struc, site, indices_neighs = neighs)
+                    for n,f in enumerate(op_feat):
+                        if f == None:
+                            op_feat[n] = 0
+                        elif f > 1:
+                            op_feat[n] = f
+                        ##Account for tolerance:
+                        elif f > lsop_tol:
+                            op_feat[n] = f
+                        else:
+                            op_feat[n] = 0
+                except: 
+                    print(f'Cannot process lsops for site: {site} of {self.struc.composition}, appending zeros!')
+                    op_feat = np.zeros([len(lsop_types)])
             if self.csm:
-                csm_feat = CSM.featurize(struc, site)
+                try:
+                    csm_feat = CSM.featurize(struc, site)
+                except: 
+                    print(f'Cannot process csms for site: {site} of {self.struc.composition}, appending zeros!')
+                    csm_feat = np.zeros([len(ce_types)])
 
             if self.csm and self.lsop:
                 feat = np.concatenate((op_feat, csm_feat))

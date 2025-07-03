@@ -23,27 +23,30 @@ from .neighbor_list import get_nbrlist
 ### Define general crystal hypergraph class that accepts list of hyperedge types, mp_id string, and structure
 class Crystal_Hypergraph(HeteroData):
     def __init__(self, struc = None, bonds = True, triplets = True, motifs = True, unit_cell = False,
-                 mp_id: str = None, target_dict = {}, strategy = 'Atom-Aggregate', motif_feat = ['csm','lsop']):
+                 mp_id: str = None, target_dict = {}, strategy = 'Atom-Aggregate', motif_feat = ['csm','lsop'],
+                 n_nbr = 20, radius = 8.0):
         super().__init__()  
         
         self.mp_id = mp_id
         self.orders = []
         self.motif_feat = motif_feat
+        self.n_nbr = n_nbr
+        self.radius = radius
         
         self.hyperedges = []
        
         if struc != None:
-            ## Generate neighbor lists
+            ## Generate neighbor lists, need tighter def for motifs
             nbr_crys, _ = get_nbrlist(struc, nn_strategy = 'crys', max_nn=12)
-            nbr_voro, _ = get_nbrlist(struc, nn_strategy = 'voro', max_nn=12)
+            nbr_list, _ = get_nbrlist(struc, nn_strategy = 'mind', max_nn=n_nbr, radius=radius)
         
             ## Generate bonds, triplets, motifs, and unit cell
             ## hyperedge types
             if bonds == True:
-                bonds = Bonds(nbr_voro)
+                bonds = Bonds(nbr_list)
                 self.hyperedges.append(bonds)
             if triplets == True:
-                triplets = Triplets(nbr_voro)
+                triplets = Triplets(nbr_list)
                 self.hyperedges.append(triplets)
             if motifs == True:
                 motifs = Motifs(nbr_crys, struc=struc, motif_feat = motif_feat)    
@@ -195,8 +198,14 @@ class Crystal_Hypergraph(HeteroData):
 
     ## Import targets as dictionary and save as value of heterodata
     def import_targets(self, target_dict):
-        for key, value in target_dict.items():
-            self[key] = value
+        if len(target_dict.items()) == 1:
+            for key, value in target_dict.items():
+                self.target = value
+                self.target_name = key
+        else:
+            for key, value in target_dict.items():
+                self[key] = value
+
 
 
 

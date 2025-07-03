@@ -14,7 +14,7 @@ from pymatgen.analysis.local_env import \
 import numpy as np
 
 #generate custom neighbor list to be used by all struc2's with nearest neighbor determination technique as parameter
-def get_nbrlist(struc, nn_strategy = 'mind', max_nn=12):
+def get_nbrlist(struc, nn_strategy = 'mind', max_nn=12, radius = 8.0):
     NN = {
         # these methods consider too many neighbors which may lead to unphysical resutls
         'voro': VoronoiNN(tol=0.2),
@@ -29,7 +29,7 @@ def get_nbrlist(struc, nn_strategy = 'mind', max_nn=12):
         'minokeeffe': MinimumOKeeffeNN(),
 
         # maybe the best
-        'mind': MinimumDistanceNN(),
+        'mind': MinimumDistanceNN(cutoff = radius, get_all_sites = True),
         'minv': MinimumVIRENN()
     }
 
