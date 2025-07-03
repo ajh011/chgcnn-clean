@@ -70,14 +70,11 @@ class MatbenchHypergraphDataset(Dataset):
         struc = self.structures[index]
         if report:
             start = time.time()
+        #generate hypergraph
         hgraph = Crystal_Hypergraph(struc, mp_id=mbid, target_dict={f'{self.target_name}':torch.tensor(float(target))},
                                      motif_feat = self.motif_feat, n_nbr = self.n_nbr, radius = self.radius)
         #forget structure for 'efficiency'
         hgraph.struc = None
-
-        if hgraph.problem:
-            
-
         if report:
             duration = time.time()-start
             print(f'Processed {mbid} in {round(duration,5)} sec')
