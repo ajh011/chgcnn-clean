@@ -35,7 +35,7 @@ class Crystal_Hypergraph(HeteroData):
 
         #Sometimes have problems with neighbor techs + motif features, this is for reporting those:
         self.problem = False
-        self.problem_name = False
+        self.problem_name = [] 
         
         self.hyperedges = []
        

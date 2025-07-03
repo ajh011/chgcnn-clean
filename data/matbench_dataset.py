@@ -138,19 +138,24 @@ def process_data(idx):
     if osp.exists(f'{processed_data_dir}/{mp_id}_hg.json'):
         print(f'Hypergraph for {mp_id} already found, skipping...')
     else:
-        d = dataset[idx]
-        data = d['hgraph']
-        data_dict = data.to_dict()
-        data_list = list(data_dict.items())
-        with open(f'{processed_data_dir}/{mp_id}_hg.json','w') as storage:
-            json_list = jsonpickle.encode(data_list)
-            storage.write(json_list)
-        if data.problem:
-            with open(f'{processed_data_dir}/problem_strucs.json','a') as prb_log:
-                id_file.write(f'{d['mp_id']}, {data.problem_name} \n')
+        try:
+            d = dataset[idx]
+            data = d['hgraph']
+            data_dict = data.to_dict()
+            data_list = list(data_dict.items())
+            with open(f'{processed_data_dir}/{mp_id}_hg.json','w') as storage:
+                json_list = jsonpickle.encode(data_list)
+                storage.write(json_list)
+            if data.problem:
+                with open(f'{processed_data_dir}/problem_strucs.csv','a') as prb_log:
+                    prb_log.write(f"{d['mp_id']}, {data.problem_name} \n")
 
-        with open(osp.join(processed_data_dir, 'processed_ids.csv'),'a') as id_file:
-            id_file.write(d['mp_id']+'\n')
+            with open(osp.join(processed_data_dir, 'processed_ids.csv'),'a') as id_file:
+                id_file.write(d['mp_id']+'\n')
+        except:
+            with open(f'{processed_data_dir}/problem_strucs.csv','a') as prb_log:
+                prb_log.write(f"{mp_id}, total! \n")
+
 
 
 
@@ -188,3 +193,4 @@ if __name__ == '__main__':
             Path(processed_data_dir).mkdir(parents=True, exist_ok=True)
 
         run_process()
+
