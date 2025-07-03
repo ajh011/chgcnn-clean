@@ -74,6 +74,10 @@ class MatbenchHypergraphDataset(Dataset):
                                      motif_feat = self.motif_feat, n_nbr = self.n_nbr, radius = self.radius)
         #forget structure for 'efficiency'
         hgraph.struc = None
+
+        if hgraph.problem:
+            
+
         if report:
             duration = time.time()-start
             print(f'Processed {mbid} in {round(duration,5)} sec')
@@ -144,6 +148,10 @@ def process_data(idx):
         with open(f'{processed_data_dir}/{mp_id}_hg.json','w') as storage:
             json_list = jsonpickle.encode(data_list)
             storage.write(json_list)
+        if data.problem:
+            with open(f'{processed_data_dir}/problem_strucs.json','a') as prb_log:
+                id_file.write(f'{d['mp_id']}, {data.problem_name} \n')
+
         with open(osp.join(processed_data_dir, 'processed_ids.csv'),'a') as id_file:
             id_file.write(d['mp_id']+'\n')
 

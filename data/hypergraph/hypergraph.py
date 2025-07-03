@@ -32,16 +32,25 @@ class Crystal_Hypergraph(HeteroData):
         self.motif_feat = motif_feat
         self.n_nbr = n_nbr
         self.radius = radius
+
+        #Sometimes have problems with neighbor techs + motif features, this is for reporting those:
+        self.problem = False
+        self.problem_name = False
         
         self.hyperedges = []
        
         if struc != None:
-            ## Generate neighbor lists, need tighter def for motifs
-            nbr_crys, _ = get_nbrlist(struc, nn_strategy = 'crys', max_nn=12)
-            nbr_list, _ = get_nbrlist(struc, nn_strategy = 'mind', max_nn=n_nbr, radius=radius)
+            ## Generate neighbor lists, need tighter def for motifs than for bonds/triplets
+            try:
+                nbr_crys, _ = get_nbrlist(struc, nn_strategy = 'crys', max_nn=12)
+            except:
+                self.problem = True
+                self.problem_name.append('CrysNN')
+                print(f'CrysNN failed for mat: {mp_id}\n Defaulting to mind')
+                nbr_crys, _ = get_nbrlist(struc, nn_strategy = 'mind', max_nn=12)
+            nbr_list, _ = get_nbrlist(struc, nn_strategy = 'n_nbr', max_nn=n_nbr, radius=radius)
         
-            ## Generate bonds, triplets, motifs, and unit cell
-            ## hyperedge types
+            ## Generate bonds, triplets, motifs, and unit cell hyperedge types
             if bonds == True:
                 bonds = Bonds(nbr_list)
                 self.hyperedges.append(bonds)
@@ -49,8 +58,12 @@ class Crystal_Hypergraph(HeteroData):
                 triplets = Triplets(nbr_list)
                 self.hyperedges.append(triplets)
             if motifs == True:
-                motifs = Motifs(nbr_crys, struc=struc, motif_feat = motif_feat)    
+                motifs = Motifs(nbr_crys, struc=struc, motif_feat = motif_feat, mp_id = self.mp_id)    
                 self.hyperedges.append(motifs)
+                if motifs.problem:
+                    self.problem = True
+                    for prb in motifs.problem_name:
+                        self.problem_name.append(prb)
             if unit_cell == True:
                 unit_cell = UnitCell(struc)
                 self.hyperedges.append(unit_cell)

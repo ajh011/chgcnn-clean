@@ -18,12 +18,21 @@ import math
 
 ### Define bonds hyperedge type for generation
 class Motifs(HyperedgeType):
-    def __init__(self,  dir_or_nbrset=None, struc=None, generate_features = True, motif_feat = ['csm','lsop']):
+    def __init__(self,  dir_or_nbrset=None, struc=None, generate_features = True, motif_feat = ['csm','lsop'], mp_id = None):
         super().__init__(generate_features = generate_features)
         self.name = 'motif'
         self.order = 12
         self.struc=struc
+        self.mp_id = mp_id
+
+        self.problem = False
+        self.problem_name = []
         
+        if mp_id == None:
+            self.error_ref = str(self.struc.composition)
+        else: 
+            self.error_ref = mp_id
+
         self.csm = False
         self.lsop = False
         if type(motif_feat)==list:
@@ -205,20 +214,26 @@ class Motifs(HyperedgeType):
                         else:
                             op_feat[n] = 0
                 except: 
-                    print(f'Cannot process lsops for site: {site} of {self.struc.composition}, appending zeros!')
+                    print(f'Cannot process lsops for site: {site} of {self.error_ref}, appending zeros!')
                     op_feat = np.zeros([len(lsop_types)])
+                    self.problem = True
+                    self.problem_name.append('lsop')
+
+
             if self.csm:
                 try:
                     csm_feat = CSM.featurize(struc, site)
                 except: 
-                    print(f'Cannot process csms for site: {site} of {self.struc.composition}, appending zeros!')
+                    print(f'Cannot process csms for site: {site} of {self.error_ref}, appending zeros!')
                     csm_feat = np.zeros([len(ce_types)])
+                    self.problem = True
+                    self.problem_name.append('csm')
 
             if self.csm and self.lsop:
                 feat = np.concatenate((op_feat, csm_feat))
             elif self.csm:
                 feat = csm_feat
             elif self.lsop:
-                feat = lsop_feat
+                feat = op_feat
             self.hyperedge_attrs.append(feat)
 

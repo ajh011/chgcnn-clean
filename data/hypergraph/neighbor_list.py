@@ -29,7 +29,8 @@ def get_nbrlist(struc, nn_strategy = 'mind', max_nn=12, radius = 8.0):
         'minokeeffe': MinimumOKeeffeNN(),
 
         # maybe the best
-        'mind': MinimumDistanceNN(cutoff = radius, get_all_sites = True),
+        'mind': MinimumDistanceNN(),
+        'n_nbr': MinimumDistanceNN(cutoff = radius, get_all_sites = True),
         'minv': MinimumVIRENN()
     }
 
