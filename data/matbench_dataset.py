@@ -174,21 +174,23 @@ def run_process(N=None, processes=10):
 if __name__ == '__main__':
     from matbench.bench import MatbenchBenchmark
     from pathlib import Path
-    mb = MatbenchBenchmark(autoload=False, subset= ['matbench_dielectric',
-                                                    'matbench_log_gvrh',
-                                                    'matbench_log_kvrh',
-                                                    'matbench_mp_e_form',
-                                                    'matbench_mp_gap',
-                                                    'matbench_mp_is_metal',
+    mb = MatbenchBenchmark(autoload=False, subset= [#'matbench_dielectric',
+                                                    #'matbench_log_gvrh',
+                                                    #'matbench_log_kvrh',
+                                                   # 'matbench_mp_e_form',
                                                     'matbench_perovskites',
-                                                    'matbench_phonons']) 
+                                                    'matbench_phonons',
+                                                    'matbench_jdft2d', 
+                                                    'matbench_mp_gap',
+                                                    'matbench_mp_is_metal',])
     for task in mb.tasks:
         task.load()
         dataframe = task.df
         dataset = MatbenchHypergraphDataset(dataframe)
         
         ##Directory for processed data (relative generate file)
-        processed_data_dir = f'dataset_{str(task.df.columns[-1])}'
+        processed_data_dir = f'dataset_{str(task.dataset_name)}'
+        print(f'Saving to {processed_data_dir}...')
         if not osp.exists(processed_data_dir):
             Path(processed_data_dir).mkdir(parents=True, exist_ok=True)
 
