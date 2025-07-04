@@ -7,13 +7,16 @@ from torch_geometric.nn import to_hetero
 from torch_geometric.loader import DataLoader
 from torch.utils.data.dataset import random_split
 from torch.optim.lr_scheduler import MultiStepLR, CosineAnnealingLR
-from data.generate_nosym import InMemoryCrystalHypergraphDataset
+from data.matbench_dataset import InMemoryCrystalHypergraphDataset
 from model.chgcnn import CrystalHypergraphConv
 from data.hypergraph.hypergraph import *
 import torch_geometric.transforms as T
 from datetime import datetime
 
+from torch.utils.data import Subset
+
 from random import sample
+import random
 
 from matbench.bench import MatbenchBenchmark
 
@@ -125,12 +128,12 @@ def train(model, device, train_loader, loss_criterion, accuracy_criterion, optim
     return losses.avg, accus.avg
 
 
-def validate(model, device, test_loader, loss_criterion, accuracy_criterion, epoch, task, target_name, normalizer):
+def validate(model, device, val_loader, loss_criterion, accuracy_criterion, epoch, task, target_name, normalizer, test = False):
     batch_time = AverageMeter('Batch', ':.4f')
     losses = AverageMeter('Loss', ':.4f')
     accus = AverageMeter('Accu', ':.4f')
     progress = ProgressMeter(
-        len(test_loader),
+        len(val_loader),
         [batch_time, losses, accus],
         prefix='Val: ')
 
@@ -138,7 +141,7 @@ def validate(model, device, test_loader, loss_criterion, accuracy_criterion, epo
 
     with torch.no_grad():
         end = time.time()
-        for i, data in enumerate(test_loader):
+        for i, data in enumerate(val_loader):
 
             data = data.to(device, non_blocking=True)
             output = torch.squeeze(model(data))
@@ -165,18 +168,37 @@ def validate(model, device, test_loader, loss_criterion, accuracy_criterion, epo
 
             if i % 10 == 0:
                 progress.display(i)
-    if task == 'regression':
-        wandb.log({'val-mse-avg': losses.avg, 'val-mae-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch}) 
-    else:
-        wandb.log({'val-nll-avg': losses.avg, 'val-accu-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch}) 
+    if test = False:
+        if task == 'regression':
+            wandb.log({'val-mse-avg': losses.avg, 'val-mae-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch}) 
+        else:
+            wandb.log({'val-nll-avg': losses.avg, 'val-accu-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch}) 
+    elif test = True:
+        if task == 'regression':
+            wandb.log({'test-mse-avg': losses.avg, 'test-mae-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch}) 
+        else:
+            wandb.log({'test-nll-avg': losses.avg, 'test-accu-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch})
     return accus.avg
 
+def train_val_test_data_from_indexes(dataset, train_indexes, test_indexes, train_ratio=0.9, seed=7):
+    n_train = round(len(train_indexes)*train_ratio)
+    random.seed(seed)
+    train_indexes = random.shuffle(train_indexes)
+    val_indexes = train_indexes[n_train:]
+    tr_indexes = train_indexes[:n_train]
 
-def main():
+    d_train = Subset(dataset, tr_indexes)
+    d_val = Subset(dataset, val_indexes)
+    d_test = Subset(dataset, test_indexes)
+
+    return d_train, d_val, d_test
+
+
+def main(matbench_task, fold):
     parser = argparse.ArgumentParser(description='CGCNN')
     parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                         help='input batch size for training (default: 64)')
-    parser.add_argument('--train-ratio', type=float, default=0.8,
+    parser.add_argument('--train-ratio', type=float, default=0.9,
                         help='trainning ratio')
     parser.add_argument('--start-epoch', default=1, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
@@ -269,10 +291,12 @@ def main():
     )
 
     #### Create dataset
-    print(f'Finding data in {args.dir}...')
-    dataset = InMemoryCrystalHypergraphDataset(args.dir, motif_feat = args.motif_feats)
+    print(f'Finding data for {matbench_task}...')
+    processed_data_dir = f'dataset_{str(matbench_task.dataset_name)}'
+    dataset = InMemoryCrystalHypergraphDataset(processed_data_dir)
     motif_feat_dim = dataset[0]['motif'].hyperedge_attrs.shape[1]
-
+    train_indexes = list(matbench_task.get_train_and_val_data(fold, include_target=False).index)
+    test_indexes  = list(matbench_task.get_test_data(fold, include_target=False).index)
         
     #### Initiliaze model 
     print('Initializing model...') 
@@ -280,17 +304,12 @@ def main():
         class_bool = True
     else:
         class_bool = False
+
     model = CrystalHypergraphConv(classification = class_bool, bonds = args.bonds, motif_feat_dim = motif_feat_dim, triplets = args.triplets, motifs = args.motifs, layers = layers).to(device)
 
     
     #### Divide data into train and test sets
-    n_data = len(dataset)
-    train_split = int(n_data * args.train_ratio)
-    dataset_train, dataset_val = random_split(
-        dataset,
-        [train_split, len(dataset) - train_split],
-        generator=torch.Generator().manual_seed(args.seed)
-    )
+    dataset_train, dataset_val, dataset_test = train_val_test_data_from_indexes(dataset, train_indexes, test_indexes, args.train_ratio)
 
     #### Load data into DataLoaders/Batches
     train_loader = DataLoader(
@@ -305,6 +324,15 @@ def main():
 
     val_loader = DataLoader(
         dataset_val,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        drop_last=args.drop_last,
+        pin_memory=args.pin_memory
+    )
+
+    test_loader = DataLoader(
+        dataset_test,
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.num_workers,
@@ -370,9 +398,10 @@ def main():
         train_loss, train_accu = train(model, device, train_loader, loss_criterion, accuracy_criterion, optimizer,
                                        epoch, args.task, 'target', normalizer, scheduler)
         val_accu = validate(model, device, val_loader, loss_criterion, accuracy_criterion, epoch, args.task, 'target', normalizer)
+        test_accu = validate(model, device, test_loader, loss_criterion, accuracy_criterion, epoch, args.task, 'target', normalizer, test = True)
 
-        is_best = train_accu < best_accu
-        best_accu = min(train_accu, best_accu)
+        is_best = val_accu < best_accu
+        best_accu = min(val_accu, best_accu)
 
         scheduler.step()
         print(f'STEP: lr ={scheduler.get_last_lr()}')
@@ -389,6 +418,8 @@ def main():
     ckpt = torch.load(best_model_filename)
     print(ckpt['best_accu'])
     wandb.finish()
+
+    return(model(dataset_test))
 
 #### Define normalizer for target data (from CGCNN source code)
 class Normalizer(object):
@@ -421,4 +452,10 @@ def save_checkpoint(state, is_best, filename, best_model_filename):
 
 
 if __name__ == '__main__':
-    main()
+    mb = MatbenchBenchmark(autoload=False, subset= ['matbench_dielectric'])
+
+    for task in mb:
+        task.load()
+        for fold in task.folds:
+            output = main(task, fold)
+            task.record(fold, output)
