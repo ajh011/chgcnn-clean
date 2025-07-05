@@ -109,8 +109,9 @@ class InMemoryCrystalHypergraphDataset(Dataset):
     def __len__(self):
         return len(self.ids)
 
-    def __getitem__(self, index):
-        mp_id = self.ids[index]
+    def __getitem__(self, mp_id):
+        if isinstance(mp_id,int):
+            mp_id = self.ids[mp_id]
         file_dir = osp.join(self.data_dir, mp_id + '_hg.json')
         with open(file_dir,'r') as storage:
             data_read = storage.read()

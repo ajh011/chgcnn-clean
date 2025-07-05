@@ -168,12 +168,12 @@ def validate(model, device, val_loader, loss_criterion, accuracy_criterion, epoc
 
             if i % 10 == 0:
                 progress.display(i)
-    if test = False:
+    if test == False:
         if task == 'regression':
             wandb.log({'val-mse-avg': losses.avg, 'val-mae-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch}) 
         else:
             wandb.log({'val-nll-avg': losses.avg, 'val-accu-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch}) 
-    elif test = True:
+    elif test == True:
         if task == 'regression':
             wandb.log({'test-mse-avg': losses.avg, 'test-mae-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch}) 
         else:
@@ -183,7 +183,7 @@ def validate(model, device, val_loader, loss_criterion, accuracy_criterion, epoc
 def train_val_test_data_from_indexes(dataset, train_indexes, test_indexes, train_ratio=0.9, seed=7):
     n_train = round(len(train_indexes)*train_ratio)
     random.seed(seed)
-    train_indexes = random.shuffle(train_indexes)
+    random.shuffle(train_indexes)
     val_indexes = train_indexes[n_train:]
     tr_indexes = train_indexes[:n_train]
 
@@ -292,10 +292,11 @@ def main(matbench_task, fold):
 
     #### Create dataset
     print(f'Finding data for {matbench_task}...')
-    processed_data_dir = f'dataset_{str(matbench_task.dataset_name)}'
+    processed_data_dir = f'data/dataset_{str(matbench_task.dataset_name)}'
     dataset = InMemoryCrystalHypergraphDataset(processed_data_dir)
-    motif_feat_dim = dataset[0]['motif'].hyperedge_attrs.shape[1]
-    train_indexes = list(matbench_task.get_train_and_val_data(fold, include_target=False).index)
+    motif_feat_dim = 59
+    train_index, targets = matbench_task.get_train_and_val_data(fold)
+    train_indexes = list(train_index.index)
     test_indexes  = list(matbench_task.get_test_data(fold, include_target=False).index)
         
     #### Initiliaze model 
@@ -454,7 +455,7 @@ def save_checkpoint(state, is_best, filename, best_model_filename):
 if __name__ == '__main__':
     mb = MatbenchBenchmark(autoload=False, subset= ['matbench_dielectric'])
 
-    for task in mb:
+    for task in mb.tasks:
         task.load()
         for fold in task.folds:
             output = main(task, fold)
