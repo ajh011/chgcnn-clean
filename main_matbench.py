@@ -127,8 +127,7 @@ def train(model, device, train_loader, loss_criterion, accuracy_criterion, optim
         wandb.log({'train-nll-avg': losses.avg, 'train-accuracy-avg': accus.avg, 'epoch': epoch, 'batch-time': batch_time.avg}) 
     return losses.avg, accus.avg
 
-
-def validate(model, device, val_loader, loss_criterion, accuracy_criterion, epoch, task, target_name, normalizer, test = False):
+def validate(model, device, val_loader, loss_criterion, accuracy_criterion, epoch, task, target_name, normalizer, test = False, return_outs = False):
     batch_time = AverageMeter('Batch', ':.4f')
     losses = AverageMeter('Loss', ':.4f')
     accus = AverageMeter('Accu', ':.4f')
@@ -138,6 +137,8 @@ def validate(model, device, val_loader, loss_criterion, accuracy_criterion, epoc
         prefix='Val: ')
 
     model.eval()
+    if return_outs:
+        outputs = []
 
     with torch.no_grad():
         end = time.time()
@@ -162,6 +163,8 @@ def validate(model, device, val_loader, loss_criterion, accuracy_criterion, epoc
                 losses.update(loss.item(), target.size(0))
                 accus.update(accu.item(), target.size(0))
 
+            if return_outs:
+                outputs.append(output)
 
             batch_time.update(time.time() - end)
             end = time.time()
@@ -178,7 +181,12 @@ def validate(model, device, val_loader, loss_criterion, accuracy_criterion, epoc
             wandb.log({'test-mse-avg': losses.avg, 'test-mae-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch}) 
         else:
             wandb.log({'test-nll-avg': losses.avg, 'test-accu-avg': accus.avg, 'i': i, 'batch-time': batch_time.avg, 'epoch': epoch})
-    return accus.avg
+    print(f'Total Acc: {accus.avg}\nTotal Loss:{losses.avg}')
+    if return_outs:
+        outputs = torch.cat(outputs)
+        return list(outputs.cpu())
+    else:
+        return accus.avg
 
 def train_val_test_data_from_indexes(dataset, train_indexes, test_indexes, train_ratio=0.9, seed=7):
     n_train = round(len(train_indexes)*train_ratio)
@@ -418,9 +426,13 @@ def main(matbench_task, fold):
 
     ckpt = torch.load(best_model_filename)
     print(ckpt['best_accu'])
+
+    test_outputs = validate(model, device, test_loader, loss_criterion, accuracy_criterion, epoch, args.task, 'target', normalizer, test = True, return_outs = True)
+
     wandb.finish()
 
-    return(model(dataset_test))
+
+    return test_outputs
 
 #### Define normalizer for target data (from CGCNN source code)
 class Normalizer(object):
@@ -453,10 +465,20 @@ def save_checkpoint(state, is_best, filename, best_model_filename):
 
 
 if __name__ == '__main__':
-    mb = MatbenchBenchmark(autoload=False, subset= ['matbench_dielectric'])
+    mb = MatbenchBenchmark(autoload=False, subset= [#'matbench_dielectric',
+                                                    'matbench_log_gvrh',
+                                                    'matbench_log_kvrh',
+                                                    'matbench_perovskites',
+                                                    'matbench_phonons', 
+                                                    'matbench_mp_e_form',
+                                                    'matbench_mp_gap',
+                                                    'matbench_mp_is_metal'])
+
 
     for task in mb.tasks:
         task.load()
         for fold in task.folds:
             output = main(task, fold)
             task.record(fold, output)
+
+    mb.to_file("my_models_benchmark_{datetime.now()}.json.gz")
