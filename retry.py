@@ -22,7 +22,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import Subset, DataLoader
 
 from cgcnn.load_data_retry import CIFData
-from cgcnn.load_data import collate_pool, get_train_val_test_loader, get_k_folds, get_nested_folds
+from cgcnn.load_data_retry import collate_pool, get_train_val_test_loader, get_k_folds, get_nested_folds
 from cgcnn.model_main import CrystalHypergraphConvNet
 
 parser = argparse.ArgumentParser(description='Crystal Graph Convolutional Neural Networks')
@@ -245,10 +245,10 @@ def main(matbench_task, fold):
 
         for epoch in range(args.start_epoch, args.epochs):
             # train for one epoch
-            train(train_loader, model, criterion, optimizer, epoch, normalizer, scheduler)
+            train(train_loader, model, criterion, optimizer, epoch, normalizer, scheduler, fold = fold)
     
             # evaluate on validation set
-            mae_error = validate(val_loader, model, criterion, normalizer, epoch)
+            mae_error = validate(val_loader, model, criterion, normalizer, epoch, fold=fold)
     
             if mae_error != mae_error:
                 print('Exit due to NaN')
@@ -280,7 +280,7 @@ def main(matbench_task, fold):
         test_outputs = validate(test_loader, model, criterion, normalizer, args.epochs, test=True, return_outputs = True)
         return test_outputs
     
-def train(train_loader, model, criterion, optimizer, epoch, normalizer, scheduler):
+def train(train_loader, model, criterion, optimizer, epoch, normalizer, scheduler, fold = None):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -385,13 +385,13 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer, schedule
 
 
     if args.task == 'regression':
-        wandb.log({'train-mse-avg': losses.avg, 'train-mae-avg': mae_errors.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'lr': scheduler.get_last_lr()}) 
+        wandb.log({'train-mse-avg': losses.avg, 'train-mae-avg': mae_errors.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'lr': scheduler.get_last_lr(), 'fold':fold}) 
         mae_error = mae(normalizer.denorm(output.data.cpu()), target.cpu())
     else:
-        wandb.log({'train-acc-avg':accuracies.avg, 'train-loss-avg': losses.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'lr': scheduler.get_last_lr()[0], 'train-recall-avg': recalls.avg, 'train-fscore-avg': fscores.avg, 'train-auc-scores': auc_scores.avg}) 
+        wandb.log({'train-acc-avg':accuracies.avg, 'train-loss-avg': losses.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'lr': scheduler.get_last_lr()[0], 'train-recall-avg': recalls.avg, 'train-fscore-avg': fscores.avg, 'train-auc-scores': auc_scores.avg, 'fold':fold}) 
            
  
-def validate(val_loader, model, criterion, normalizer, epoch, test=False, return_outputs=False):
+def validate(val_loader, model, criterion, normalizer, epoch, test=False, return_outputs=False, fold = None):
     batch_time = AverageMeter()
     losses = AverageMeter()
     if args.task == 'regression':
@@ -507,9 +507,9 @@ def validate(val_loader, model, criterion, normalizer, epoch, test=False, return
 
     if test:
         if args.task == 'regression':
-            wandb.log({'test-mse-avg': losses.avg, 'test-mae-avg': mae_errors.avg, 'epoch': epoch, 'batch-time': batch_time.avg}) 
+            wandb.log({'test-mse-avg': losses.avg, 'test-mae-avg': mae_errors.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'fold':fold}) 
         else:
-            wandb.log({'test-acc-avg':accuracies.avg, 'test-loss-avg': losses.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'test-recall-avg': recalls.avg, 'test-fscore-avg': fscores.avg, 'test-auc-scores': auc_scores.avg}) 
+            wandb.log({'test-acc-avg':accuracies.avg, 'test-loss-avg': losses.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'test-recall-avg': recalls.avg, 'test-fscore-avg': fscores.avg, 'test-auc-scores': auc_scores.avg, 'fold':fold}) 
         star_label = '**'
         import csv
         with open('test_results.csv', 'w') as f:
@@ -520,9 +520,9 @@ def validate(val_loader, model, criterion, normalizer, epoch, test=False, return
     else:
         star_label = '*'
         if args.task == 'regression':
-            wandb.log({'val-mse-avg': losses.avg, 'val-mae-avg': mae_errors.avg, 'epoch': epoch, 'batch-time': batch_time.avg}) 
+            wandb.log({'val-mse-avg': losses.avg, 'val-mae-avg': mae_errors.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'fold':fold}) 
         else:
-            wandb.log({'val-acc-avg':accuracies.avg, 'val-loss-avg': losses.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'val-recall-avg': recalls.avg, 'val-fscore-avg': fscores.avg, 'val-auc-scores': auc_scores.avg}) 
+            wandb.log({'val-acc-avg':accuracies.avg, 'val-loss-avg': losses.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'val-recall-avg': recalls.avg, 'val-fscore-avg': fscores.avg, 'val-auc-scores': auc_scores.avg, 'fold':fold}) 
 
     if return_outputs:
         outputs = torch.cat(outputs)
@@ -632,19 +632,34 @@ def adjust_learning_rate(optimizer, epoch, k):
 
 if __name__ == '__main__':
     
-    mb = MatbenchBenchmark(autoload=False, subset= [#'matbench_dielectric',
+    mb = MatbenchBenchmark(autoload=False, subset= ['matbench_dielectric',
 #                                                    'matbench_log_gvrh',
 #                                                    'matbench_log_kvrh',
 #                                                    'matbench_perovskites',
-#                                                    'matbench_phonons',
+                                                    'matbench_phonons',
+                                                    'matbench_jdft2d',
 #                                                    'matbench_mp_e_form',
-                                                    'matbench_mp_gap',
+#                                                    'matbench_mp_gap',
 #                                                    'matbench_mp_is_metal'
 ])
 
     task_names = ''
     for task in mb.tasks:
         task.load()
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="chgcnn-dirty-matbench",
+            
+            # track hyperparameters and run metadata
+            config={
+            "learning_rate": args.lr,
+            "architecture": "Agg-dirty" ,
+            "dataset": task.dataset_name,
+            "epochs": args.epochs,
+            "batch_size": args.batch_size
+            }
+        )
+
         for fold in task.folds:
 
             if args.task == 'regression':
@@ -652,23 +667,11 @@ if __name__ == '__main__':
             else:
                 best_mae_error = 0.
 
-            wandb.init(
-                # set the wandb project where this run will be logged
-                project="chgcnn-clean",
-                
-                # track hyperparameters and run metadata
-                config={
-                "learning_rate": args.lr,
-                "architecture": "Agg-dirty" ,
-                "dataset": args.nominal_target_name,
-                "epochs": args.epochs,
-                "batch_size": args.batch_size
-                }
-            )
-
             output = main(task, fold)
             task.record(fold, output)
+
+        wandb.finish()
         task_names += str(task.dataset_name)+'_' 
-        mb.to_file(f"my_models_benchmark_{task}T{datetime.now()}.json.gz")
+        mb.to_file(f"my_models_benchmark_{task.dataset_name}T{datetime.now()}.json.gz")
 
     mb.to_file(f"my_models_benchmark_{task_names}T{datetime.now()}.json.gz")
