@@ -274,6 +274,7 @@ def main(matbench_task, fold):
     
         # test best model
         print('---------Evaluate Model on Test Set---------------')
+        torch.cuda.empty_cache()
         best_checkpoint = torch.load(best_filename)
         model.load_state_dict(best_checkpoint['state_dict'])
 
@@ -449,7 +450,7 @@ def validate(val_loader, model, criterion, normalizer, epoch, test=False, return
         # compute output
         output = torch.squeeze(model(*input_var))
         if return_outputs:
-            outputs.append(output)
+            outputs.append(output.clone().detach())
         loss = criterion(output, target_var)
 
         # measure accuracy and record loss
@@ -632,14 +633,14 @@ def adjust_learning_rate(optimizer, epoch, k):
 
 if __name__ == '__main__':
     
-    mb = MatbenchBenchmark(autoload=False, subset= ['matbench_dielectric',
+    mb = MatbenchBenchmark(autoload=False, subset= [#'matbench_dielectric',
 #                                                    'matbench_log_gvrh',
 #                                                    'matbench_log_kvrh',
 #                                                    'matbench_perovskites',
-                                                    'matbench_phonons',
-                                                    'matbench_jdft2d',
+                                                    #'matbench_phonons',
+                                                    #'matbench_jdft2d',
 #                                                    'matbench_mp_e_form',
-#                                                    'matbench_mp_gap',
+                                                    'matbench_mp_gap',
 #                                                    'matbench_mp_is_metal'
 ])
 
