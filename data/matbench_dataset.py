@@ -139,20 +139,20 @@ def process_data(idx):
     if osp.exists(f'{processed_data_dir}/{mp_id}_hg.json'):
         print(f'Hypergraph for {mp_id} already found, skipping...')
     else:
-        try:
-            d = dataset[idx]
-            data = d['hgraph']
-            data_dict = data.to_dict()
-            data_list = list(data_dict.items())
-            with open(f'{processed_data_dir}/{mp_id}_hg.json','w') as storage:
-                json_list = jsonpickle.encode(data_list)
-                storage.write(json_list)
-            if data.problem:
-                with open(f'{processed_data_dir}/problem_strucs.csv','a') as prb_log:
-                    prb_log.write(f"{d['mp_id']}, {data.problem_name} \n")
+#        try:
+        d = dataset[idx]
+        data = d['hgraph']
+        data_dict = data.to_dict()
+        data_list = list(data_dict.items())
+        with open(f'{processed_data_dir}/{mp_id}_hg.json','w') as storage:
+            json_list = jsonpickle.encode(data_list)
+            storage.write(json_list)
+        if data.problem:
+            with open(f'{processed_data_dir}/problem_strucs.csv','a') as prb_log:
+                prb_log.write(f"{d['mp_id']}, {data.problem_name} \n")
 
-            with open(osp.join(processed_data_dir, 'processed_ids.csv'),'a') as id_file:
-                id_file.write(d['mp_id']+'\n')
+        with open(osp.join(processed_data_dir, 'processed_ids.csv'),'a') as id_file:
+            id_file.write(d['mp_id']+'\n')
         except:
             with open(f'{processed_data_dir}/problem_strucs.csv','a') as prb_log:
                 prb_log.write(f"{mp_id}, total! \n")
@@ -162,7 +162,7 @@ def process_data(idx):
 
 
 
-def run_process(N=None, processes=10):
+def run_process(N=None, processes=1):
     if N is None:
         N = len(dataset)
 
@@ -178,12 +178,13 @@ if __name__ == '__main__':
     mb = MatbenchBenchmark(autoload=False, subset= [#'matbench_dielectric',
                                                     #'matbench_log_gvrh',
                                                     #'matbench_log_kvrh',
-                                                   # 'matbench_mp_e_form',
-                                                    'matbench_perovskites',
-                                                    'matbench_phonons',
-                                                    'matbench_jdft2d', 
-                                                    'matbench_mp_gap',
-                                                    'matbench_mp_is_metal',])
+                                                    'matbench_mp_e_form',
+#                                                    'matbench_perovskites',
+#                                                    'matbench_phonons',
+#                                                    'matbench_jdft2d', 
+#                                                    'matbench_mp_gap',
+#                                                    'matbench_mp_is_metal',
+])
     for task in mb.tasks:
         task.load()
         dataframe = task.df

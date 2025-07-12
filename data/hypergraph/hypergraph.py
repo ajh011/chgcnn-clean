@@ -33,7 +33,7 @@ class Crystal_Hypergraph(HeteroData):
         self.n_nbr = n_nbr
         self.radius = radius
 
-        #Sometimes have problems with neighbor techs + motif features, this is for reporting those:
+        #Sometimes have problems with neighbor techs + motif/triplet features, this is for reporting those:
         self.problem = False
         self.problem_name = [] 
         
@@ -73,8 +73,12 @@ class Crystal_Hypergraph(HeteroData):
             ## Add hyperedge types to hypergraph
             if self.hyperedges != None:
                 for hyperedge_type in self.hyperedges:
-                    self.add_hyperedge_type(hyperedge_type)
-        
+                    try:
+                        self.add_hyperedge_type(hyperedge_type)
+                    except:
+                        print(f'Problem with hyperedge type {hyperedge_type.name} of {self.mp_id}, skipping!')
+                        self.problem_name.append(hyperedge_type.name)
+    
             ## Generate relatives edges and atomic info
             self.generate_atom_xs(struc)
             self.generate_edges(strategy)
