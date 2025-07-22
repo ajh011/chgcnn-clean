@@ -184,6 +184,8 @@ def main(matbench_task, fold):
                                 triplets = args.triplets,
                                 classification=True if args.task ==
                                                        'classification' else False)
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'Total num. of params: {total_params}')
     if args.cuda:
         device = torch.device(f'cuda:{args.device_number}')
         torch.cuda.set_device(device)
@@ -450,6 +452,8 @@ def validate(val_loader, model, criterion, normalizer, epoch, test=False, return
         # compute output
         output = torch.squeeze(model(*input_var))
         if return_outputs:
+            if len(output.shape)==0:
+                output = torch.unsqueeze(output, dim = -1)
             outputs.append(output.clone().detach())
         loss = criterion(output, target_var)
 
@@ -526,7 +530,10 @@ def validate(val_loader, model, criterion, normalizer, epoch, test=False, return
             wandb.log({'val-acc-avg':accuracies.avg, 'val-loss-avg': losses.avg, 'epoch': epoch, 'batch-time': batch_time.avg, 'val-recall-avg': recalls.avg, 'val-fscore-avg': fscores.avg, 'val-auc-scores': auc_scores.avg, 'fold':fold}) 
 
     if return_outputs:
-        outputs = torch.cat(outputs)
+        try:
+            outputs = torch.cat(outputs)
+        except:
+            print(outputs)
         if args.task == 'regression':
             print(' {star} MAE {mae_errors.avg:.3f}'.format(star=star_label,
                                                             mae_errors=mae_errors))
@@ -632,19 +639,20 @@ def adjust_learning_rate(optimizer, epoch, k):
 
 
 if __name__ == '__main__':
-    
-    mb = MatbenchBenchmark(autoload=False, subset= [#'matbench_dielectric',
-#                                                    'matbench_log_gvrh',
-#                                                    'matbench_log_kvrh',
-#                                                    'matbench_perovskites',
-                                                    #'matbench_phonons',
-                                                    #'matbench_jdft2d',
-#                                                    'matbench_mp_e_form',
-                                                    'matbench_mp_gap',
-#                                                    'matbench_mp_is_metal'
-])
+    subset= [#'matbench_dielectric',
+    #                                                    'matbench_log_gvrh',
+    #                                                    'matbench_log_kvrh',
+    #                                                    'matbench_perovskites',
+                                                        'matbench_phonons',
+                                                        'matbench_jdft2d',
+    #                                                    'matbench_mp_e_form',
+    #                                                    'matbench_mp_gap',
+    #                                                    'matbench_mp_is_metal'
+    ]
+    mb = MatbenchBenchmark(autoload=False, subset=subset)
 
     task_names = ''
+    print(f'Running on matbench tasks:\n{subset}')
     for task in mb.tasks:
         task.load()
         wandb.init(
