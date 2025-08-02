@@ -90,13 +90,19 @@ class CHGConv(nn.Module):
         z = self.lin_f2(z)
         z_f, z_c = z.chunk(2, dim = -1)
         if self.batch_norm == True:
-            z_f = self.bn_f(z_f)
-            z_c = self.bn_c(z_c)
+            try:
+                z_f = self.bn_f(z_f)
+                z_c = self.bn_c(z_c)
+            except:
+                print(f'bnf,c failed due to size {z_f.shape} of z_f {z_f}, skipping...')
         out = self.sigmoid_filter(z_f)*self.softplus_core(z_c) # Apply CGConv like structure
         out = self.node_aggr(out, hyperedge_index[1], dim_size = num_nodes) #aggregate according to node
 
         if self.batch_norm == True:
-            out = self.bn_o(out)
+            try:
+                out = self.bn_o(out)
+            except:
+                print(f'bno failed due to size {out.shape} of out: {out}, skipping...')
 
         out = self.softplus_out(out + x)
 
@@ -167,7 +173,10 @@ class ConvLayer(nn.Module):
         nbr_filter = self.sigmoid(nbr_filter)
         nbr_core = self.softplus1(nbr_core)
         nbr_sumed = torch.sum(nbr_filter * nbr_core, dim=1)
-        nbr_sumed = self.bn2(nbr_sumed)
+        try:
+            nbr_sumed = self.bn2(nbr_sumed)
+        except:
+            print(f'bn2 failed due to size {nbr_sumed.shape} of {nbr_sumed}, skipping...')
         out = self.softplus2(atom_in_fea + nbr_sumed)
         return out
 
@@ -205,7 +214,7 @@ class CrystalHypergraphConvNet(nn.Module):
         self.bonds = bonds
         self.triplets = triplets
         motif_fea_dim = 59
-        triplet_fea_dim = 41
+        triplet_fea_dim = 40
         self.classification = classification
         self.embedding = nn.Linear(orig_atom_fea_len, atom_fea_len)
 

@@ -277,7 +277,7 @@ def main(matbench_task, fold):
         # test best model
         print('---------Evaluate Model on Test Set---------------')
         torch.cuda.empty_cache()
-        best_checkpoint = torch.load(best_filename)
+        best_checkpoint = torch.load(best_filename,weights_only=False)
         model.load_state_dict(best_checkpoint['state_dict'])
 
         test_outputs = validate(test_loader, model, criterion, normalizer, args.epochs, test=True, return_outputs = True)
@@ -334,16 +334,22 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer, schedule
 
         # compute output
         output = torch.squeeze(model(*input_var))
-        loss = criterion(output, target_var)
-
+        try:
+            loss = criterion(output, target_var)
+        except:
+            loss = criterion(torch.unsqueeze(output,dim=0),target_var)
         # measure accuracy and record loss
         if args.task == 'regression':
             mae_error = mae(normalizer.denorm(output.data.cpu()), target.cpu())
             losses.update(loss.data.cpu(), target.cpu().size(0))
             mae_errors.update(mae_error, target.cpu().size(0))
         else:
-            accuracy, precision, recall, fscore, auc_score = \
-                class_eval(output.data.cpu(), target)
+            try:
+                accuracy, precision, recall, fscore, auc_score = \
+                    class_eval(output.data.cpu(), target)
+            except:
+                accuracy, precision, recall, fscore, auc_score = \
+                    class_eval(torch.unsqueeze(output.data.cpu(),dim=0), target)
             losses.update(loss.data.cpu().item(), target.size(0))
             accuracies.update(accuracy, target.size(0))
             precisions.update(precision, target.size(0))
@@ -537,10 +543,11 @@ def validate(val_loader, model, criterion, normalizer, epoch, test=False, return
         if args.task == 'regression':
             print(' {star} MAE {mae_errors.avg:.3f}'.format(star=star_label,
                                                             mae_errors=mae_errors))
+            return list(outputs.cpu().detach().numpy())
         else:
             print(' {star} AUC {auc.avg:.3f}'.format(star=star_label,
                                                      auc=auc_scores))
-        return list(outputs.cpu().detach().numpy())
+            return list(torch.argmax(outputs,1).cpu().detach().numpy())
     else:
         if args.task == 'regression':
             print(' {star} MAE {mae_errors.avg:.3f}'.format(star=star_label,
@@ -640,14 +647,14 @@ def adjust_learning_rate(optimizer, epoch, k):
 
 if __name__ == '__main__':
     subset= [#'matbench_dielectric',
-    #                                                    'matbench_log_gvrh',
-    #                                                    'matbench_log_kvrh',
-    #                                                    'matbench_perovskites',
-                                                        'matbench_phonons',
-                                                        'matbench_jdft2d',
-    #                                                    'matbench_mp_e_form',
-    #                                                    'matbench_mp_gap',
-    #                                                    'matbench_mp_is_metal'
+                                                        #'matbench_log_gvrh',
+                                                        #'matbench_log_kvrh',
+                                                       # 'matbench_perovskites',
+                                                       # 'matbench_phonons',
+                                                        #'matbench_jdft2d',
+#                                                        'matbench_mp_e_form',
+#                                                        'matbench_mp_gap',
+                                                        'matbench_mp_is_metal'
     ]
     mb = MatbenchBenchmark(autoload=False, subset=subset)
 
